@@ -1,102 +1,101 @@
 import os
 import requests
-from flask import Flask, request
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Environment variables from Render dashboard
-PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "my_verify_token")
+# ====== Messenger config ======
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")  # From Meta Developer portal
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "my_verify_token")  # You choose this
 
-HF_API_URL = os.getenv("HF_API_URL")  # Hugging Face model API URL
-HF_TOKEN = os.getenv("HF_TOKEN")      # Hugging Face API key
+# ====== Hugging Face config ======
+HF_API_URL = os.getenv("HF_API_URL", "https://api-inference.huggingface.co/models/ealvaradob/bert-finetuned-phishing")
+HF_TOKEN = os.getenv("HF_TOKEN")  # Your Hugging Face API key
 
 
+# ====== Messenger Webhook ======
 @app.route("/webhook", methods=["GET"])
 def verify():
-    """Verification for Facebook Webhook"""
+    """Webhook verification (for Messenger setup)"""
     mode = request.args.get("hub.mode")
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
 
     if mode == "subscribe" and token == VERIFY_TOKEN:
-        print("Webhook verified ✅")
         return challenge, 200
-    print("Webhook verification failed ❌")
     return "Verification failed", 403
 
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    """Handle incoming messages"""
+    """Handle incoming Messenger messages"""
     data = request.get_json()
-    print("Incoming webhook:", data)
+    app.logger.info(f"Incoming webhook: {data}")
 
     if "entry" in data:
         for entry in data["entry"]:
             for event in entry.get("messaging", []):
-                if "message" in event:
+                if "message" in event and "text" in event["message"]:
                     sender_id = event["sender"]["id"]
-                    user_message = event["message"].get("text", "")
+                    user_message = event["message"]["text"]
 
-                    print(f"User({sender_id}) said: {user_message}")
+                    app.logger.info(f"User({sender_id}) said: {user_message}")
 
-                    # Call HF model for phishing scan
+                    # Run Hugging Face phishing scanner
                     result = run_scanner(user_message)
-                    print(f"Scanner result: {result}")
+                    app.logger.info(f"Scanner result: {result}")
 
-                    # Reply to Messenger
+                    # Send reply to Messenger
                     send_message(sender_id, f"Scan Result: {result}")
 
     return "EVENT_RECEIVED", 200
 
 
+# ====== Helper functions ======
 def send_message(recipient_id, text):
-    """Send message back to Messenger"""
+    """Send a text message to Messenger user"""
     url = "https://graph.facebook.com/v20.0/me/messages"
     params = {"access_token": PAGE_ACCESS_TOKEN}
     payload = {
         "recipient": {"id": recipient_id},
         "message": {"text": text}
     }
-    try:
-        response = requests.post(url, params=params, json=payload, timeout=10)
-        if response.status_code != 200:
-            print(f"Failed to send message: {response.status_code} {response.text}")
-    except Exception as e:
-        print(f"Error sending message: {e}")
+    headers = {"Content-Type": "application/json"}
+    requests.post(url, params=params, headers=headers, json=payload)
 
 
 def run_scanner(message):
-    """Call Hugging Face API to scan message"""
-    if not HF_API_URL or not HF_TOKEN:
-        return "Scanner not configured. Missing HF_API_URL or HF_TOKEN."
-
+    """Send user message to Hugging Face phishing model"""
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     payload = {"inputs": message}
 
     try:
-        response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=10)
+        response = requests.post(HF_API_URL, headers=headers, json=payload)
         if response.status_code == 200:
             result = response.json()
 
-            # Handle classification result
+            # HF returns a list of predictions
             if isinstance(result, list) and len(result) > 0:
-                label = result[0].get("label", "unknown")
-                score = result[0].get("score", 0)
-                return f"{label.upper()} (confidence: {score:.2f})"
+                top = max(result, key=lambda x: x.get("score", 0))
+                label = top.get("label", "Unknown")
+                confidence = round(top.get("score", 0) * 100, 2)
+                return f"{label} ({confidence}%)"
 
             return str(result)
 
-        return f"Error: HF API returned {response.status_code} {response.text}"
+        return f"Error: HF API returned {response.status_code} - {response.text}"
+
     except Exception as e:
         return f"Error calling scanner: {str(e)}"
 
 
-@app.route("/health", methods=["GET"])
-def health():
-    """Health check for Render"""
-    return "OK", 200
+# ====== Health Check ======
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "status": "ok",
+        "message": "Messenger phishing scanner is running"
+    })
 
 
 if __name__ == "__main__":
