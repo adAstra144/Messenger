@@ -74,14 +74,18 @@ def run_scanner(message):
         if response.status_code == 200:
             result = response.json()
 
-            # HF returns a list of predictions
+            # Unwrap if nested (e.g. [[...]])
+            while isinstance(result, list) and len(result) > 0 and isinstance(result[0], list):
+                result = result[0]
+
+            # Now result should be a list of dicts
             if isinstance(result, list) and len(result) > 0:
                 top = max(result, key=lambda x: x.get("score", 0))
                 label = top.get("label", "Unknown")
                 confidence = round(top.get("score", 0) * 100, 2)
                 return f"{label} ({confidence}%)"
 
-            return str(result)
+            return f"Unexpected response: {result}"
 
         return f"Error: HF API returned {response.status_code} - {response.text}"
 
