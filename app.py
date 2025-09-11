@@ -78,6 +78,43 @@ def run_scanner(message):
             while isinstance(result, list) and len(result) > 0 and isinstance(result[0], list):
                 result = result[0]
 
+            if isinstance(result, list) and len(result) > 0:
+                top = max(result, key=lambda x: x.get("score", 0))
+                label = top.get("label", "Unknown")
+                confidence = round(top.get("score", 0) * 100, 2)
+
+                # Customize response text
+                if label.lower() == "phishing":
+                    return (
+                        f"🚨 Phishing Detected!\n"
+                        f"Confidence: {confidence}%\n\n"
+                        f"⚠️ This message looks suspicious.\n"
+                        f"👉 Do not reply or click links.\n"
+                        f"🛡️ Best action: Ignore or delete."
+                    )
+                else:
+                    return (
+                        f"✅ Safe Message\n"
+                        f"Confidence: {confidence}%\n\n"
+                        f"👍 No phishing detected."
+                    )
+
+            return f"Unexpected response: {result}"
+
+        return f"Error: HF API returned {response.status_code} - {response.text}"
+
+    except Exception as e:
+        return f"Error calling scanner: {str(e)}"
+
+    try:
+        response = requests.post(HF_API_URL, headers=headers, json=payload)
+        if response.status_code == 200:
+            result = response.json()
+
+            # Unwrap if nested (e.g. [[...]])
+            while isinstance(result, list) and len(result) > 0 and isinstance(result[0], list):
+                result = result[0]
+
             # Now result should be a list of dicts
             if isinstance(result, list) and len(result) > 0:
                 top = max(result, key=lambda x: x.get("score", 0))
