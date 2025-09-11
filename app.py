@@ -46,7 +46,7 @@ def webhook():
                     app.logger.info(f"Scanner result: {result}")
 
                     # Send reply to Messenger
-                    send_message(sender_id, f"Scan Result: {result}")
+                    send_message(sender_id, result)
 
     return "EVENT_RECEIVED", 200
 
@@ -86,17 +86,28 @@ def run_scanner(message):
                 # Customize response text
                 if label.lower() == "phishing":
                     return (
-                        f"🚨 Phishing Detected!\n"
+                        f"🚨 Phishing\n"
                         f"Confidence: {confidence}%\n\n"
-                        f"⚠️ This message looks suspicious.\n"
-                        f"👉 Do not reply or click links.\n"
-                        f"🛡️ Best action: Ignore or delete."
+                        f"⚠️ This message looks suspicious and may be a phishing attempt.\n\n"
+                        f"👉 What to do: Do not reply, share personal details, or click any links/attachments.\n\n"
+                        f"🛡️ Best action: ignore, delete, or report it.\n\n"
+                        f"🔒 How to avoid phishing:\n"
+                        f"• Check the sender’s email/number carefully.\n"
+                        f"• Watch for spelling mistakes or odd grammar.\n"
+                        f"• Don’t trust urgent scare tactics like “act now”.\n"
+                        f"• Use official apps or websites instead of in-message links."
                     )
                 else:
                     return (
-                        f"✅ Safe Message\n"
+                        f"✅ Safe\n"
                         f"Confidence: {confidence}%\n\n"
-                        f"👍 No phishing detected."
+                        f"✅ This message appears safe.\n\n"
+                        f"👉 What to do: You can continue normally, but stay alert for anything unusual.\n\n"
+                        f"💡 Safety tips:\n"
+                        f"• Double-check the sender/source if unsure.\n"
+                        f"• Be careful with unexpected links or files.\n"
+                        f"• Keep your device and security tools updated.\n"
+                        f"• When in doubt, verify through official channels."
                     )
 
             return f"Unexpected response: {result}"
