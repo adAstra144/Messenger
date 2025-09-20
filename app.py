@@ -2,6 +2,8 @@ import os
 import requests
 from flask import Flask, request, jsonify
 
+from analyze import analyze_pipeline
+
 app = Flask(__name__)
 
 # ====== Messenger config ======
@@ -41,9 +43,41 @@ def webhook():
 
                     app.logger.info(f"User({sender_id}) said: {user_message}")
 
-                    # Run Hugging Face phishing scanner
-                    result = run_scanner(user_message)
-                    app.logger.info(f"Scanner result: {result}")
+                    # Run your analyze pipeline
+                    analysis = analyze_pipeline(user_message)
+                    app.logger.info(f"Pipeline result: {analysis}")
+
+                    # Compose reply with ML fallback if pipeline didn't decide
+                    if analysis.get("blacklist"):
+                        # Detailed phishing reply (from run_scanner)
+                        result = (
+                            f"🚨 Phishing\n"
+                            f"Confidence: 100.0%\n\n"
+                            f"⚠️ This message contains a phishing link.\n\n"
+                            f"👉 What to do: Do not reply, share personal details, or click any links/attachments.\n\n"
+                            f"🛡️ Best action: ignore, delete, or report it.\n\n"
+                            f"🔒 How to avoid phishing:\n"
+                            f"• Check the sender’s email/number carefully.\n"
+                            f"• Watch for spelling mistakes or odd grammar.\n"
+                            f"• Don’t trust urgent scare tactics like “act now”.\n"
+                            f"• Use official apps or websites instead of in-message links."
+                        )
+                    elif analysis.get("whitelist"):
+                        # Detailed safe reply
+                        result = (
+                            f"✅ Safe\n"
+                            f"Confidence: 100.0%\n\n"
+                            f"✅ This message appears safe.\n\n"
+                            f"👉 What to do: You can continue normally, but stay alert for anything unusual.\n\n"
+                            f"💡 Safety tips:\n"
+                            f"• Double-check the sender/source if unsure.\n"
+                            f"• Be careful with unexpected links or files.\n"
+                            f"• Keep your device and security tools updated.\n"
+                            f"• When in doubt, verify through official channels."
+                        )
+                    else:
+                        # fallback to HF model
+                        result = run_scanner(user_message)
 
                     # Send reply to Messenger
                     send_message(sender_id, result)
