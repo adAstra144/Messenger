@@ -32,7 +32,7 @@ def verify():
 def webhook():
     """Handle incoming Messenger messages"""
     data = request.get_json()
-    app.logger.info(f"Incoming webhook: {data}")
+    #app.logger.info(f"Incoming webhook: {data}")
 
     if "entry" in data:
         for entry in data["entry"]:
@@ -41,11 +41,11 @@ def webhook():
                     sender_id = event["sender"]["id"]
                     user_message = event["message"]["text"]
 
-                    app.logger.info(f"User({sender_id}) said: {user_message}")
+                    #app.logger.info(f"User({sender_id}) said: {user_message}")
 
                     # Run your analyze pipeline
                     analysis = analyze_pipeline(user_message)
-                    app.logger.info(f"Pipeline result: {analysis}")
+                    #app.logger.info(f"Pipeline result: {analysis}")
 
                     # Compose reply with ML fallback if pipeline didn't decide
                     if analysis.get("blacklist"):
@@ -88,6 +88,10 @@ def webhook():
 # ====== Helper functions ======
 def send_message(recipient_id, text):
     """Send a text message to Messenger user"""
+    # print(f"\n--- Reply to {recipient_id} ---")
+    # print(text)
+    # print("----------------------------\n")
+
     url = "https://graph.facebook.com/v20.0/me/messages"
     params = {"access_token": PAGE_ACCESS_TOKEN}
     payload = {

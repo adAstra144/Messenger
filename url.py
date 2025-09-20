@@ -2,6 +2,10 @@ import os
 import re
 import sqlite3
 from urllib.parse import urlparse, urlunparse
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # -----------------------
 # DB + URL helpers
@@ -163,7 +167,7 @@ def extract_urls_and_domains(text: str):
                 if "." in tok:
                     domains.append(tok.split(':')[0])
 
-    # debug prints (optional)
+    #debug prints (optional)
     # logger.info(f"[DEBUG] Input text: {text}")
     # logger.info(f"[DEBUG] Extracted full URLs: {full_urls}")
     # logger.info(f"[DEBUG] Extracted domains: {domains}")
